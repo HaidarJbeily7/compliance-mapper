@@ -1,0 +1,3 @@
+[submodule "external/TrustEval-toolkit"]
+	path = external/TrustEval-toolkit
+	url = https://github.com/TrustGen/TrustEval-toolkit.git
