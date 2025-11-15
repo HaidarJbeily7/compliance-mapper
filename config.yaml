@@ -1,0 +1,45 @@
+models:
+  gpt-4o-mini:
+    provider: openai
+    model_id: gpt-4o-mini
+    max_tokens: 4096
+    temperature: 0.7
+    rate_limit: 50  # requests per minute
+    
+  claude-haiku:
+    provider: anthropic
+    model_id: claude-3-haiku-20240307
+    max_tokens: 4096
+    temperature: 0.7
+    rate_limit: 50  # requests per minute
+
+benchmarks:
+  trust_eval:
+    enabled: true
+    tests:
+      - toxicity
+      - stereotype_bias
+      - adversarial_robustness
+      - privacy
+      - truthfulness
+    
+  decoding_trust:
+    enabled: true
+    perspectives:
+      - toxicity
+      - stereotype_bias
+      - adv_robustness
+      - out_of_distribution
+      - privacy
+      - machine_ethics
+      - fairness
+    
+  holistic_ai:
+    enabled: false  # Optional, can be added later
+
+output:
+  metrics_dir: metrics
+  reports_dir: reports
+  compliance_dir: compliance
+  format: jsonl
+
