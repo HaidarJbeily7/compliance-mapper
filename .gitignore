@@ -71,4 +71,5 @@ dmypy.json
 # Pyre
 .pyre/
 
-external/
+# External directories (managed as submodules)
+# external/

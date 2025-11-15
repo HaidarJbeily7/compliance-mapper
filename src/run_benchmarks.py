@@ -14,6 +14,12 @@ from typing import List
 import yaml
 from dotenv import load_dotenv
 
+# Add src to path if running as script
+if __name__ == "__main__":
+    src_path = Path(__file__).parent
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+
 from benchmarks import TrustEvalRunner, DecodingTrustRunner, BenchmarkResult
 
 
