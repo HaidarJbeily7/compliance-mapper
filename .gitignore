@@ -71,3 +71,4 @@ dmypy.json
 # Pyre
 .pyre/
 
+external/
