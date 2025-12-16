@@ -51,9 +51,11 @@ def main():
         default='markdown',
         help='Report format (default: markdown)'
     )
+    # Default matrix path relative to this script
+    default_matrix = Path(__file__).parent / 'compliance' / 'eu_ai_act_matrix.csv'
     parser.add_argument(
         '--matrix',
-        default='compliance/eu_ai_act_matrix.csv',
+        default=str(default_matrix),
         help='Path to compliance matrix CSV'
     )
     

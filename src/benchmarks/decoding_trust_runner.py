@@ -15,6 +15,13 @@ from typing import List, Dict, Any
 import openai
 import anthropic
 
+# Optional Google Generative AI support
+try:
+    import google.generativeai as genai
+    GOOGLE_AVAILABLE = True
+except ImportError:
+    GOOGLE_AVAILABLE = False
+
 from .base import BenchmarkRunner, BenchmarkResult
 
 
@@ -114,11 +121,18 @@ class DecodingTrustRunner(BenchmarkRunner):
         super().__init__(model_name, api_key, config)
         self.framework_name = "DecodingTrust"
         
-        # Determine provider based on model name
-        if 'gpt' in model_name.lower() or 'openai' in model_name.lower():
-            self.provider = 'openai'
-        else:
-            self.provider = 'anthropic'
+        # Determine provider from config or model name
+        model_config = config.get('models', {}).get(model_name, {})
+        self.provider = model_config.get('provider')
+        
+        if not self.provider:
+            # Fallback to name-based detection
+            if 'gpt' in model_name.lower() or 'openai' in model_name.lower():
+                self.provider = 'openai'
+            elif 'gemini' in model_name.lower():
+                self.provider = 'google'
+            else:
+                self.provider = 'anthropic'
         
         # Test configurations with thresholds
         self.test_configs = {
@@ -148,7 +162,20 @@ class DecodingTrustRunner(BenchmarkRunner):
                 )
                 http_client.close()
                 return response.choices[0].message.content or ""
-            else:
+            elif self.provider == 'google':
+                if not GOOGLE_AVAILABLE:
+                    raise ImportError("google-generativeai package not installed. Run: pip install google-generativeai")
+                genai.configure(api_key=self.api_key)
+                model = genai.GenerativeModel(model_id)
+                response = model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        max_output_tokens=max_tokens,
+                        temperature=temperature
+                    )
+                )
+                return response.text if response.text else ""
+            else:  # anthropic
                 client = anthropic.Anthropic(api_key=self.api_key)
                 response = client.messages.create(
                     model=model_id,

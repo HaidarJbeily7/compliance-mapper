@@ -60,15 +60,28 @@ class ComplianceMapper:
         Get all requirements that reference a specific metric.
         
         Args:
-            metric_id: Metric identifier (e.g., "trust_eval:toxicity")
+            metric_id: Metric identifier (e.g., "trusteval:safety")
             
         Returns:
             List of requirements that reference this metric
         """
         matching = []
+        # Normalize metric_id: lowercase, remove underscores/spaces
+        normalized_id = metric_id.lower().replace('_', '').replace(' ', '')
+        
         for req in self.requirements:
-            if metric_id in req.metric_ids or 'ALL_METRICS' in req.metric_ids:
+            # Check ALL_METRICS first
+            if 'ALL_METRICS' in req.metric_ids:
                 matching.append(req)
+                continue
+            
+            # Check each metric ID in requirements (case-insensitive)
+            for req_metric in req.metric_ids:
+                normalized_req = req_metric.lower().replace('_', '').replace(' ', '')
+                if normalized_id == normalized_req:
+                    matching.append(req)
+                    break
+        
         return matching
     
     def get_requirements_by_status(self, status: str) -> List[ComplianceRequirement]:
@@ -143,7 +156,11 @@ class ComplianceMapper:
         mapping = {}
         
         for result in metric_results:
-            metric_id = f"{result['framework'].lower()}:{result['test_name']}"
+            # Normalize framework name (TrustEval -> trusteval, DecodingTrust -> decodingtrust)
+            framework = result['framework'].lower().replace('_', '').replace(' ', '')
+            test_name = result['test_name'].lower().replace('_', '').replace(' ', '')
+            metric_id = f"{framework}:{test_name}"
+            
             requirements = self.get_requirements_for_metric(metric_id)
             
             for req in requirements:
@@ -155,7 +172,7 @@ class ComplianceMapper:
                     }
                 
                 mapping[key]['evidence'].append({
-                    'metric_id': metric_id,
+                    'metric_id': f"{result['framework']}:{result['test_name']}",
                     'model': result['model_name'],
                     'score': result['score'],
                     'passed': result['passed'],

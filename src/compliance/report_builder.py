@@ -160,37 +160,85 @@ class ReportBuilder:
             # Evidence by Requirement
             f.write("## Evidence by EU AI Act Requirement\n\n")
             
-            # Group by status
-            for status in ['COVERED', 'PARTIAL', 'GAP']:
-                requirements = self.mapper.get_requirements_by_status(status)
-                if not requirements:
-                    continue
+            # Categorize requirements by actual evidence status
+            reqs_with_evidence = []
+            reqs_partial_evidence = []
+            reqs_no_evidence = []
+            
+            for req in self.mapper.requirements:
+                key = f"{req.article}:{req.requirement}"
+                has_evidence = key in mapping and len(mapping[key]['evidence']) > 0
                 
-                f.write(f"### {status} Requirements\n\n")
-                
-                for req in requirements:
+                if has_evidence:
+                    evidence_list = mapping[key]['evidence']
+                    avg_score = sum(e['score'] for e in evidence_list) / len(evidence_list)
+                    all_passed = all(e['passed'] for e in evidence_list)
+                    
+                    if all_passed and avg_score >= 0.7:
+                        reqs_with_evidence.append((req, evidence_list))
+                    else:
+                        reqs_partial_evidence.append((req, evidence_list))
+                else:
+                    reqs_no_evidence.append(req)
+            
+            # Requirements with strong evidence
+            if reqs_with_evidence:
+                f.write("### ✅ Fully Covered (with Evidence)\n\n")
+                for req, evidence_list in reqs_with_evidence:
                     f.write(f"#### {req.article}: {req.requirement}\n\n")
                     f.write(f"**Description:** {req.description}\n\n")
-                    f.write(f"**Status:** {req.gap_status}\n\n")
+                    avg_score = sum(e['score'] for e in evidence_list) / len(evidence_list)
+                    f.write(f"**Average Score:** {avg_score:.2f} | **Evidence Count:** {len(evidence_list)}\n\n")
                     
-                    # Find evidence for this requirement
-                    key = f"{req.article}:{req.requirement}"
-                    if key in mapping and mapping[key]['evidence']:
-                        f.write("**Evidence:**\n\n")
-                        f.write("| Model | Metric | Score | Status |\n")
-                        f.write("|-------|--------|-------|--------|\n")
-                        
-                        for evidence in mapping[key]['evidence']:
-                            status_icon = "✓" if evidence['passed'] else "✗"
-                            f.write(f"| {evidence['model']} | {evidence['metric_id']} | ")
-                            f.write(f"{evidence['score']:.2f} | {status_icon} |\n")
-                        f.write("\n")
-                    else:
-                        f.write("**Evidence:** No direct benchmark evidence available.\n\n")
+                    f.write("**Evidence:**\n\n")
+                    f.write("| Model | Metric | Score | Status |\n")
+                    f.write("|-------|--------|-------|--------|\n")
+                    
+                    for evidence in evidence_list:
+                        status_icon = "✓" if evidence['passed'] else "✗"
+                        f.write(f"| {evidence['model']} | {evidence['metric_id']} | ")
+                        f.write(f"{evidence['score']:.2f} | {status_icon} |\n")
+                    f.write("\n")
                     
                     if req.notes:
                         f.write(f"**Notes:** {req.notes}\n\n")
+                    f.write("---\n\n")
+            
+            # Requirements with partial evidence
+            if reqs_partial_evidence:
+                f.write("### ⚠️ Partially Covered (Evidence Available but Needs Improvement)\n\n")
+                for req, evidence_list in reqs_partial_evidence:
+                    f.write(f"#### {req.article}: {req.requirement}\n\n")
+                    f.write(f"**Description:** {req.description}\n\n")
+                    avg_score = sum(e['score'] for e in evidence_list) / len(evidence_list)
+                    passed_count = sum(1 for e in evidence_list if e['passed'])
+                    f.write(f"**Average Score:** {avg_score:.2f} | **Passed:** {passed_count}/{len(evidence_list)}\n\n")
                     
+                    f.write("**Evidence:**\n\n")
+                    f.write("| Model | Metric | Score | Status |\n")
+                    f.write("|-------|--------|-------|--------|\n")
+                    
+                    for evidence in evidence_list:
+                        status_icon = "✓" if evidence['passed'] else "✗"
+                        f.write(f"| {evidence['model']} | {evidence['metric_id']} | ")
+                        f.write(f"{evidence['score']:.2f} | {status_icon} |\n")
+                    f.write("\n")
+                    
+                    if req.notes:
+                        f.write(f"**Notes:** {req.notes}\n\n")
+                    f.write("---\n\n")
+            
+            # Requirements without evidence
+            if reqs_no_evidence:
+                f.write("### ❌ Gaps (No Benchmark Evidence)\n\n")
+                for req in reqs_no_evidence:
+                    f.write(f"#### {req.article}: {req.requirement}\n\n")
+                    f.write(f"**Description:** {req.description}\n\n")
+                    f.write(f"**Expected Metrics:** {', '.join(req.metric_ids) if req.metric_ids else 'N/A'}\n\n")
+                    f.write("**Evidence:** No direct benchmark evidence available.\n\n")
+                    
+                    if req.notes:
+                        f.write(f"**Recommendation:** {req.notes}\n\n")
                     f.write("---\n\n")
             
             # Gaps and Recommendations
