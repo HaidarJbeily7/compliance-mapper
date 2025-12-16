@@ -102,13 +102,16 @@ class TrustEvalRunner(BenchmarkRunner):
             model_id = self.config.get('models', {}).get(self.model_name, {}).get('model_id', self.model_name)
             
             if self.provider == 'openai':
-                client = openai.OpenAI(api_key=self.api_key)
+                import httpx
+                http_client = httpx.Client(proxy=None)
+                client = openai.OpenAI(api_key=self.api_key, http_client=http_client)
                 response = client.chat.completions.create(
                     model=model_id,
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=max_tokens,
                     temperature=temperature
                 )
+                http_client.close()
                 return response.choices[0].message.content or ""
             else:
                 client = anthropic.Anthropic(api_key=self.api_key)
