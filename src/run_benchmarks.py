@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
 Main script to run trust benchmarks on GPT-4o mini and Claude Haiku.
+
+Supports two evaluation frameworks:
+- TrustEval: Safety, Fairness, Robustness, Privacy, Truthfulness
+- DecodingTrust: Toxicity, Stereotype Bias, Adversarial Robustness, 
+                 OOD Robustness, Privacy, Machine Ethics, Fairness
 """
 
 import os
@@ -25,16 +30,18 @@ from benchmarks import TrustEvalRunner, DecodingTrustRunner, BenchmarkResult
 
 def load_config() -> dict:
     """Load configuration from config.yaml."""
-    with open('config.yaml', 'r') as f:
+    config_path = Path(__file__).parent.parent / 'config.yaml'
+    with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
 
 def save_results(results: List[BenchmarkResult], output_dir: str = 'metrics'):
     """Save benchmark results to JSONL file."""
-    Path(output_dir).mkdir(exist_ok=True)
+    output_path = Path(__file__).parent.parent / output_dir
+    output_path.mkdir(exist_ok=True)
     
     timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-    output_file = Path(output_dir) / f'results_{timestamp}.jsonl'
+    output_file = output_path / f'results_{timestamp}.jsonl'
     
     with open(output_file, 'w') as f:
         for result in results:
@@ -73,13 +80,20 @@ def print_summary(results: List[BenchmarkResult]):
             for result in fw_results:
                 status = "✓ PASS" if result.passed else "✗ FAIL"
                 print(f"    {result.test_name:30s} Score: {result.score:.2f}  {status}")
+            
+            # Framework subtotals
+            fw_passed = sum(1 for r in fw_results if r.passed)
+            fw_avg = sum(r.score for r in fw_results) / len(fw_results) if fw_results else 0
+            print(f"    {'─' * 50}")
+            print(f"    Subtotal: {fw_passed}/{len(fw_results)} passed | Avg: {fw_avg:.2f}")
         
         # Overall stats
         total = len(model_results)
         passed = sum(1 for r in model_results if r.passed)
         avg_score = sum(r.score for r in model_results) / total if total > 0 else 0
         
-        print(f"\n  Overall: {passed}/{total} tests passed | Average score: {avg_score:.2f}")
+        print(f"\n  {'═' * 50}")
+        print(f"  OVERALL: {passed}/{total} tests passed | Average score: {avg_score:.2f}")
     
     print("\n" + "="*80)
 
@@ -99,17 +113,23 @@ async def run_benchmarks_for_model(
     
     if 'trust_eval' in frameworks or 'all' in frameworks:
         print(f"\n→ Running TrustEval tests...")
-        runner = TrustEvalRunner(model_name, api_key, config)
-        trust_results = await runner.run_all_tests()
-        results.extend(trust_results)
-        print(f"  Completed {len(trust_results)} tests")
+        try:
+            runner = TrustEvalRunner(model_name, api_key, config)
+            trust_results = await runner.run_all_tests()
+            results.extend(trust_results)
+            print(f"  Completed {len(trust_results)} TrustEval tests")
+        except Exception as e:
+            print(f"  Error running TrustEval: {e}")
     
     if 'decoding_trust' in frameworks or 'all' in frameworks:
         print(f"\n→ Running DecodingTrust tests...")
-        runner = DecodingTrustRunner(model_name, api_key, config)
-        decoding_results = await runner.run_all_tests()
-        results.extend(decoding_results)
-        print(f"  Completed {len(decoding_results)} tests")
+        try:
+            runner = DecodingTrustRunner(model_name, api_key, config)
+            decoding_results = await runner.run_all_tests()
+            results.extend(decoding_results)
+            print(f"  Completed {len(decoding_results)} DecodingTrust tests")
+        except Exception as e:
+            print(f"  Error running DecodingTrust: {e}")
     
     return results
 
@@ -133,6 +153,10 @@ async def main():
         '--output-dir',
         default='metrics',
         help='Output directory for results'
+    )
+    parser.add_argument(
+        '--test',
+        help='Run a specific test (e.g., safety, toxicity, fairness)'
     )
     
     args = parser.parse_args()
@@ -179,6 +203,10 @@ async def main():
         )
         all_results.extend(claude_results)
     
+    if not all_results:
+        print("No benchmark results collected. Check your configuration and API keys.")
+        sys.exit(1)
+    
     # Save results
     output_file = save_results(all_results, args.output_dir)
     
@@ -186,8 +214,12 @@ async def main():
     print_summary(all_results)
     
     print(f"\n✓ Benchmarking complete! Results saved to {output_file}")
+    
+    # Return exit code based on pass rate
+    pass_rate = sum(1 for r in all_results if r.passed) / len(all_results)
+    return 0 if pass_rate >= 0.5 else 1
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
-
+    exit_code = asyncio.run(main())
+    sys.exit(exit_code)

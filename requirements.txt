@@ -7,16 +7,17 @@ python-dotenv>=1.0.0
 pandas>=2.0.0
 numpy>=1.24.0
 
-# Trust evaluation frameworks
-# Note: TrustEval and DecodingTrust may need to be cloned separately
-# as they are research repositories
-
 # Utilities
 requests>=2.31.0
 tqdm>=4.65.0
 pyyaml>=6.0
+aiohttp>=3.9.0
 
 # Testing
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
 
+# Optional: Trust evaluation frameworks
+# Install these if you want to use the full framework pipelines:
+# pip install trusteval  # or: pip install -e path/to/TrustEval-toolkit
+# pip install decoding-trust  # or: pip install -e path/to/DecodingTrust
