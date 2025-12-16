@@ -42,9 +42,6 @@ venv.bak/
 .env.local
 .env.*.local
 
-# Output directories
-metrics/
-reports/
 
 # Logs
 *.log
